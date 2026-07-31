@@ -61,7 +61,11 @@ class AmazonS3AndCloudFrontAssets
         add_filter('template_directory_uri', [$this, 'filterTemplateDirectoryUri'], 10, 1);
         add_filter('style_loader_src', [$this, 'rewriteSrc'], 10, 2);
         add_filter('script_loader_src', [$this, 'rewriteSrc'], 10, 2);
-        add_filter('wp_filterable_script_extra_tag', [$this, 'modifyScriptExtra'], 10, 2);
+        // Rewrite URLs inside localized script data, just before head/footer scripts are printed.
+        // wp_print_scripts covers the frontend, admin and login head; the other two cover the footers.
+        add_action('wp_print_scripts', [$this, 'rewriteScriptExtraUrls']);
+        add_action('wp_print_footer_scripts', [$this, 'rewriteScriptExtraUrls'], 0);
+        add_action('admin_print_footer_scripts', [$this, 'rewriteScriptExtraUrls'], 0);
         add_filter('wp_resource_hints', [$this, 'registerResourceHints'], 10, 2);
     }
 
@@ -280,29 +284,33 @@ class AmazonS3AndCloudFrontAssets
      * Modify script localization for certain scripts to update URLs to use CloudFront.
      *
      * Some scripts will use WordPress localization to add inline scripts that contain URLs.
-     * Here, we replace those URLs with the tagged CloudFront URL.
+     * Here, we replace those URLs, in the data stored on the script handle, with the
+     * tagged CloudFront URL - before WordPress prints the data as an inline script.
+     * The URLs appear inside JSON-encoded data, hence the escaped slashes.
      *
-     * @param string $value  The original extra script content.
-     * @param string $handle The handle of the script the extra script is attached to.
-     * @return string The modified extra script content.
+     * @return void
      */
-    public function modifyScriptExtra($value, $handle)
+    public function rewriteScriptExtraUrls(): void
     {
         if (!$this->use_cloudfront_for_assets) {
-            return $value;
+            return;
         }
 
-        if (in_array($handle, ['thickbox', 'zxcvbn-async'], true)) {
-            $search = get_home_url(null, '/wp/wp-includes/js');
-            $search_escaped = str_replace('/', '\/', $search);
+        $search = get_home_url(null, '/wp/wp-includes/js');
+        $search_escaped = str_replace('/', '\/', $search);
 
-            $replace = $this->cloudfront_asset_urls['tagged'] . '/wp/wp-includes/js';
-            $replace_escaped = str_replace('/', '\/', $replace);
+        $replace = $this->cloudfront_asset_urls['tagged'] . '/wp/wp-includes/js';
+        $replace_escaped = str_replace('/', '\/', $replace);
 
-            $value = str_replace($search_escaped, $replace_escaped, $value);
+        $scripts = wp_scripts();
+
+        foreach (['thickbox', 'zxcvbn-async'] as $handle) {
+            $data = $scripts->get_data($handle, 'data');
+
+            if ($data) {
+                $scripts->add_data($handle, 'data', str_replace($search_escaped, $replace_escaped, $data));
+            }
         }
-
-        return $value;
     }
 }
 

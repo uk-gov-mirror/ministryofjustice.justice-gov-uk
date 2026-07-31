@@ -50,7 +50,6 @@ require_once 'inc/theme.php';
 require_once 'inc/updates.php';
 require_once 'inc/utils.php';
 require_once 'inc/wp-script-localization.php';
-require_once 'inc/wp-scripts.php';
 
 if (getenv('WP_ENV') === 'development') {
     $debug = new Justice\Debug();
@@ -129,7 +128,8 @@ add_action('init', function () {
 });
 
 // TOTO - fix? I was seeing some inline style issues.
-function remove_global_styles_inline_css() {
+function remove_global_styles_inline_css()
+{
     remove_action('wp_enqueue_scripts', 'wp_enqueue_global_styles');
 }
 add_action('init', 'remove_global_styles_inline_css');
