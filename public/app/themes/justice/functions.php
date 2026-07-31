@@ -127,3 +127,9 @@ add_action('init', function () {
             exit;
     }
 });
+
+// TOTO - fix? I was seeing some inline style issues.
+function remove_global_styles_inline_css() {
+    remove_action('wp_enqueue_scripts', 'wp_enqueue_global_styles');
+}
+add_action('init', 'remove_global_styles_inline_css');

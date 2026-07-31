@@ -21,9 +21,14 @@ defined('ABSPATH') || exit;
  */
 class WpScriptLocalization
 {
+    // The handle for the loader script registered in registerLocalizeLoaderScript().
+    const LOADER_HANDLE = 'moj-localize-loader';
+
     // Only allow certain script handles to be modified.
+    // Warning! Keep in sync with mojLocalizedDataEntries in src/js/script-localization.js.
     const ALLOWED_SCRIPT_HANDLES = [
         'ccfw-script',
+        'cookie-consent-script',
         'wp-sentry-browser',
     ];
 
@@ -47,7 +52,7 @@ class WpScriptLocalization
     public function addHooks(): void
     {
         // Initialise our custom WP_Scripts class.
-        add_action('init', [self::class, 'replaceWpScripts'], 100);
+        add_action('init', [$this, 'replaceWpScripts'], 100);
 
         // Load the script-localization.js script.
         // This script contains the mojLoadLocalizedData() function
@@ -58,7 +63,7 @@ class WpScriptLocalization
         add_filter('wp_filterable_script_extra_tag', [$this, 'modifyInlineScripts'], 0, 3);
 
         // Add dependency by modifying the global $wp_scripts object.
-        add_action('wp_enqueue_scripts', [self::class, 'addMojLocalizeLoaderAsDependency'], 100);
+        add_action('wp_enqueue_scripts', [$this, 'addMojLocalizeLoaderAsDependency'], 100);
     }
 
 
@@ -72,7 +77,7 @@ class WpScriptLocalization
      * @see justice/inc/amazon-s3-and-cloudfront-assets.php
      * @see wp/wp-includes/script-loader.php
      */
-    public static function replaceWpScripts(): void
+    public function replaceWpScripts(): void
     {
         $fscripts              = new WpFilterableScripts;
         $GLOBALS['wp_scripts'] = $fscripts;
@@ -89,31 +94,17 @@ class WpScriptLocalization
      */
     public function registerLocalizeLoaderScript(): void
     {
-        $handle = 'moj-localize-loader';
-        $script_asset_path = get_template_directory() . "/dist/php/script-localization.min.asset.php";
+        $script_asset_path = get_template_directory() . '/dist/php/script-localization.min.asset.php';
         $script_uri = get_template_directory_uri() . '/dist/script-localization.min.js';
 
-        if (!file_exists($script_asset_path)) {
-            wp_die(
-                sprintf(
-                    /* translators: 1: localize-loader.js, 2: localize-loader.asset.php */
-                    __('The file %1$s is missing. Please run <code>npm run build</code> to create it. The file %2$s is also missing.', 'justice'),
-                    esc_html('localize-loader.js'),
-                    esc_html('localize-loader.asset.php')
-                ),
-                __('Error', 'justice'),
-                ['response' => 500]
-            );
-        }
-
-        $script_asset = require $script_asset_path;
+        $script_asset = file_exists($script_asset_path) ? require $script_asset_path : null;
 
         if (!is_array($script_asset) || !isset($script_asset['dependencies'], $script_asset['version'])) {
             wp_die(
                 sprintf(
-                    __('The file %1$s is invalid. Please run <code>npm run build</code> to recreate it. The file %2$s is also invalid.', 'justice'),
-                    esc_html('localize-loader.js'),
-                    esc_html('localize-loader.asset.php')
+                    /* translators: %s: script-localization.min.asset.php */
+                    __('The file %s is missing or invalid. Please run <code>npm run build</code> to create it.', 'justice'),
+                    esc_html('script-localization.min.asset.php')
                 ),
                 __('Error', 'justice'),
                 ['response' => 500]
@@ -121,7 +112,7 @@ class WpScriptLocalization
         }
 
         wp_register_script(
-            $handle,
+            self::LOADER_HANDLE,
             $script_uri,
             $script_asset['dependencies'],
             $script_asset['version'],
@@ -138,7 +129,7 @@ class WpScriptLocalization
      *
      * @return void
      */
-    public static function addMojLocalizeLoaderAsDependency(): void
+    public function addMojLocalizeLoaderAsDependency(): void
     {
         global $wp_scripts;
         if (!$wp_scripts instanceof WpFilterableScripts) {
@@ -147,7 +138,7 @@ class WpScriptLocalization
 
         foreach (self::ALLOWED_SCRIPT_HANDLES as $handle) {
             if (isset($wp_scripts->registered[$handle])) {
-                $wp_scripts->registered[$handle]->deps[] = 'moj-localize-loader';
+                $wp_scripts->registered[$handle]->deps[] = self::LOADER_HANDLE;
             }
         }
     }
@@ -160,10 +151,11 @@ class WpScriptLocalization
      * to use type="application/json" and call mojLoadLocalizedData()
      * to load the configuration into a global variable.
      *
-     * @param string $value  The original inline script content.
+     * @param string $value  The original inline script tag, including the wrapping <script> element.
      * @param string $handle The handle of the script the inline script is attached to.
+     * @param array  $data   The localized data for the handle, keyed by object name.
      *
-     * @return string The modified inline script content.
+     * @return string The modified inline script tag.
      */
     public function modifyInlineScripts($value, $handle, $data)
     {
@@ -171,7 +163,9 @@ class WpScriptLocalization
             return $value;
         }
 
-        if (empty($value)) {
+        // No data was captured for this handle, e.g. it was localized before
+        // the global $wp_scripts was replaced. Leave the original tag untouched.
+        if (empty($data)) {
             return $value;
         }
 
@@ -180,7 +174,5 @@ class WpScriptLocalization
         $tag .= self::LOAD_DATA_INLINE_SCRIPT;
 
         return $tag;
-
-        return $value;
     }
 }
