@@ -66,6 +66,11 @@ class Core
 
         // Disable block visibility support added in WP 6.9
         add_filter('block_type_metadata', [__CLASS__, 'disableBlockVisibilitySupport']);
+
+        // Disable the Abilities API added in WP 7.0.
+        // AI support is already disabled via the WP_AI_SUPPORT constant.
+        remove_action('wp_abilities_api_categories_init', 'wp_register_core_ability_categories');
+        remove_action('wp_abilities_api_init', 'wp_register_core_abilities');
     }
 
     /**
@@ -148,6 +153,9 @@ class Core
         // Remove Appearance > Patterns menu,
         // the URL is still accessible to admins but that's fine.
         remove_submenu_page('themes.php', 'site-editor.php?p=/pattern');
+        // Remove the Settings > Connectors menu added in WP 7.0,
+        // AI connectors are disabled via the WP_AI_SUPPORT constant.
+        remove_submenu_page('options-general.php', 'options-connectors.php');
     }
 
 

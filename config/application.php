@@ -132,6 +132,9 @@ Config::define('COMPRESS_SCRIPTS', false);
 // Enable the authentication mu-plugin.
 Config::define('MOJ_AUTH_ENABLED', true);
 
+// Disable the AI client and AI provider connectors added in WP 7.0.
+Config::define('WP_AI_SUPPORT', false);
+
 // Limit the number of post revisions
 Config::define('WP_POST_REVISIONS', env('WP_POST_REVISIONS') ?? true);
 

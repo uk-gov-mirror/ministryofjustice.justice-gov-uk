@@ -25,15 +25,23 @@ class Theme
 
 
     /**
-     * Add theme support for title-tag.
+     * Add theme support for title-tag and editor styles.
+     *
+     * Since WP 7.0, classic themes without theme.json must declare editor-styles
+     * support to keep default editor typography (Gutenberg #79815), and editor
+     * styles must be registered via add_editor_style() to reach the iframed
+     * post-editor canvas.
      *
      * @see https://developer.wordpress.org/reference/functions/add_theme_support/
+     * @see https://github.com/wordpress/gutenberg/issues/79815
      *
      * @return void
      */
     public function addThemeSupport(): void
     {
         add_theme_support('title-tag');
+        add_theme_support('editor-styles');
+        add_editor_style('dist/css/editor.min.css');
     }
 
 

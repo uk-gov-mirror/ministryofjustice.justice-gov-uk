@@ -23,6 +23,7 @@ class BlockEditor
         add_filter('the_content', [$this, 'formatBlocks']);
         add_filter('allowed_block_types_all', [$this, 'filterAllowedBlockTypes'], 10, 0);
         add_filter('block_editor_settings_all', [$this, 'customiseSettings']);
+        add_filter('register_block_type_args', [$this, 'filterHeadingArgs'], 10, 2);
     }
 
     public function registerBlocks()
@@ -197,5 +198,26 @@ class BlockEditor
         $settings['enableOpenverseMediaCategory'] = false;
 
         return $settings;
+    }
+
+    /**
+     * Restrict the heading levels available in the editor.
+     *
+     * Since WP 7.0 heading levels are block variations; setting levelOptions
+     * makes core unregister the variations for the other levels. Editor UI
+     * only — existing content keeps whatever levels it has.
+     *
+     * @param array $args The block type registration arguments.
+     * @param string $block_type The block type name.
+     * @return array The modified arguments.
+     */
+
+    public function filterHeadingArgs(array $args, string $block_type): array
+    {
+        if ($block_type === 'core/heading') {
+            $args['attributes']['levelOptions']['default'] = [2, 3, 4];
+        }
+
+        return $args;
     }
 }

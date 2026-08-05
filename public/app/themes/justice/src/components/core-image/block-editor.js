@@ -1,41 +1,37 @@
-import domReady from "@wordpress/dom-ready";
+// @ts-check
 
-domReady(() => {
-    const checkImages = () => {
-        const images = document.querySelectorAll('.editor-styles-wrapper img');
-        images.forEach(img => {
-            const src = img.getAttribute('src');
-            if (
-                src &&
-                !src.startsWith(document.location.origin) &&
-                !img.classList.contains('external-image-warning')
-            ) {
-                img.classList.add('external-image-warning');
-            }
-        });
-    };
+import { addFilter } from "@wordpress/hooks";
+import { createHigherOrderComponent } from "@wordpress/compose";
 
-    const waitForEditorWrapper = () => {
-        const target = document.querySelector('.editor-styles-wrapper');
-        if (target) {
-            // Initial check
-            checkImages();
+/**
+ * Is the url external to this site?
+ *
+ * @param {string | undefined} url
+ * @returns {boolean}
+ */
 
-            // Observe changes
-            const observer = new MutationObserver(() => {
-                checkImages();
-            });
+const isExternal = (url) =>
+  !!url && /^https?:\/\//.test(url) && !url.startsWith(window.location.origin);
 
-            observer.observe(target, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-            });
-        } else {
-            // Retry after a short delay
-            setTimeout(waitForEditorWrapper, 300);
-        }
-    };
+/**
+ * Adds a warning class to core/image blocks that reference an external image.
+ *
+ * Implemented as a BlockListBlock filter (rather than querying the DOM) so the
+ * class is rendered inside the editor canvas even when it is iframed (WP 7.0+).
+ */
 
-    waitForEditorWrapper();
-});
+const withExternalImageWarning = createHigherOrderComponent(
+  (BlockListBlock) => (props) =>
+    props.name === "core/image" && isExternal(props.attributes?.url) ? (
+      <BlockListBlock {...props} className="external-image-warning" />
+    ) : (
+      <BlockListBlock {...props} />
+    ),
+  "withExternalImageWarning",
+);
+
+addFilter(
+  "editor.BlockListBlock",
+  "moj/external-image-warning",
+  withExternalImageWarning,
+);

@@ -1,7 +1,10 @@
 .editor-styles-wrapper {
     .external-image-warning {
-        border: 3px solid tomato;
         position: relative;
+
+        img {
+            border: 3px solid tomato;
+        }
     }
 
     .external-image-warning::before {
